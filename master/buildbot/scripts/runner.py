@@ -382,6 +382,8 @@ class TryOptions(base.SubcommandOptions):
          "Only needed for SVN and CVS."],
         ["topdir", None, None,
          "Path to the top of the working copy. Only needed for SVN and CVS."],
+        ["taskid", "t", None,
+         "Jira task to validate."],
     ]
 
     optFlags = [

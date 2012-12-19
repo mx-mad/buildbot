@@ -27,6 +27,8 @@ from buildbot.process.properties import Properties
 from buildbot.schedulers import base
 from buildbot.status.buildset import BuildSetStatus
 
+from buildbot.murex.jira import JiraClient
+
 
 class TryBase(base.BaseScheduler):
 
@@ -72,7 +74,7 @@ class Try_Jobdir(TryBase):
     compare_attrs = TryBase.compare_attrs + ('jobdir',)
 
     def __init__(self, name, builderNames, jobdir,
-                 properties={}):
+                 properties={}, auto=False):
         TryBase.__init__(self, name=name, builderNames=builderNames,
                          properties=properties)
         self.jobdir = jobdir
@@ -220,9 +222,13 @@ class Try_Userpass_Perspective(pbutil.NewCredPerspective):
     def __init__(self, scheduler, username):
         self.scheduler = scheduler
         self.username = username
+        self.jiraClient = None
+        if self.scheduler.auto:
+            self.jiraClient = JiraClient('mxjira')
+
 
     @defer.inlineCallbacks
-    def perspective_try(self, branch, revision, patch, repository, project,
+    def perspective_try(self, branch, revision, patch, repository, taskId, project,
                         builderNames, who="", comment="", properties={}):
         db = self.scheduler.master.db
         log.msg("user %s requesting build on builders %s" % (self.username,
@@ -231,7 +237,21 @@ class Try_Userpass_Perspective(pbutil.NewCredPerspective):
         # build the intersection of the request and our configured list
         builderNames = self.scheduler.filterBuilderList(builderNames)
         if not builderNames:
+            log.msg("incoming Try job from user %s did not specify a valid job id" % self.username)
             return
+
+        # Mx specific
+        if self.scheduler.auto:
+            if not taskId:
+                log.msg("incoming Try auto job from user %s did not specify a task id" % self.username)
+                return
+            issue = self.jiraClient.getIssue(taskId) 
+            if not issue: 
+                log.msg("incoming Try auto job from user %s did not specify a valid task id" % self.username)
+                return
+            properties["tpks"]=issue["tpks"]
+            properties["taskId"]=taskId
+            log.msg("incoming Try auto job from user %s properties %s" % (self.username, properties["tpks"]) ) 
 
         reason = "'try' job"
 
@@ -276,11 +296,12 @@ class Try_Userpass(TryBase):
     compare_attrs = ('name', 'builderNames', 'port', 'userpass', 'properties')
 
     def __init__(self, name, builderNames, port, userpass,
-                 properties={}):
+                 properties={}, auto=False):
         TryBase.__init__(self, name=name, builderNames=builderNames,
                          properties=properties)
         self.port = port
         self.userpass = userpass
+        self.auto = auto
 
     def startService(self):
         TryBase.startService(self)

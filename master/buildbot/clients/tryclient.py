@@ -506,6 +506,7 @@ class Try(pb.Referenceable):
         self.project = self.getopt('project', '')
         self.who = self.getopt('who')
         self.comment = self.getopt('comment')
+        self.taskId = self.getopt('taskid')
 
     def getopt(self, config_name, default=None):
         value = self.config.get(config_name)
@@ -616,6 +617,7 @@ class Try(pb.Referenceable):
                               ss.revision,
                               ss.patch,
                               ss.repository,
+                              self.taskId,
                               self.project,
                               self.builderNames,
                               self.who,
